@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../widgets/mini_player.dart';
 import '../../providers/quran_provider.dart';
 import '../../widgets/bottom_navigation.dart';
 
@@ -80,7 +80,13 @@ class _QuranScreenState extends ConsumerState<QuranScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const TilawaBottomNavigation(currentIndex: 1),
+      bottomNavigationBar: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TilawaMiniPlayer(),
+          TilawaBottomNavigation(currentIndex: 0),
+        ],
+      ),
     );
   }
 }

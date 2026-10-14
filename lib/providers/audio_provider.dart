@@ -1,23 +1,36 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio/just_audio.dart';
 
-final isPlayingProvider = NotifierProvider<IsPlayingNotifier, bool>(
-  IsPlayingNotifier.new,
-);
+import '../core/audio/audio_player_service.dart';
 
-class IsPlayingNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
+final audioPlayerServiceProvider = Provider<AudioPlayerService>((ref) {
+  final service = AudioPlayerService();
+  ref.onDispose(() {
+    unawaited(service.dispose());
+  });
+  return service;
+});
 
-  void setPlaying(bool value) {
-    state = value;
-  }
+final playerStateProvider = StreamProvider<PlayerState>((ref) {
+  return ref.watch(audioPlayerServiceProvider).player.playerStateStream;
+});
 
-  void toggle() {
-    state = !state;
-  }
-}
+final positionProvider = StreamProvider<Duration>((ref) {
+  return ref.watch(audioPlayerServiceProvider).player.positionStream;
+});
 
-final playbackSpeedProvider = NotifierProvider<PlaybackSpeedNotifier, double>(
+final durationProvider = StreamProvider<Duration?>((ref) {
+  return ref.watch(audioPlayerServiceProvider).player.durationStream;
+});
+
+final isPlayingProvider = Provider<bool>((ref) {
+  return ref.watch(playerStateProvider).value?.playing ?? false;
+});
+
+final playbackSpeedProvider =
+    NotifierProvider<PlaybackSpeedNotifier, double>(
   PlaybackSpeedNotifier.new,
 );
 
@@ -25,12 +38,14 @@ class PlaybackSpeedNotifier extends Notifier<double> {
   @override
   double build() => 1.0;
 
-  void setSpeed(double value) {
+  Future<void> setSpeed(double value) async {
     state = value;
+    await ref.read(audioPlayerServiceProvider).setSpeed(value);
   }
 }
 
-final currentAyahProvider = NotifierProvider<CurrentAyahNotifier, int>(
+final currentAyahProvider =
+    NotifierProvider<CurrentAyahNotifier, int>(
   CurrentAyahNotifier.new,
 );
 
@@ -42,3 +57,4 @@ class CurrentAyahNotifier extends Notifier<int> {
     state = value;
   }
 }
+
