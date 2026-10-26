@@ -13,18 +13,58 @@ class AudioPlayerService {
     required String title,
     required String artist,
   }) async {
-    final uri = Uri.tryParse(url);
-
-    if (uri == null ||
-        !uri.hasScheme ||
-        (uri.scheme != 'http' && uri.scheme != 'https')) {
-      throw ArgumentError.value(url, 'url', 'A valid HTTP(S) URL is required.');
-    }
+    _validateUrl(url);
 
     currentTitle = title;
     currentArtist = artist;
 
     await player.setUrl(url);
+  }
+
+  Future<void> loadPlaylist({
+    required List<String> urls,
+    required String title,
+    required String artist,
+    int initialIndex = 0,
+  }) async {
+    if (urls.isEmpty) {
+      throw ArgumentError('The audio playlist cannot be empty.');
+    }
+
+    if (initialIndex < 0 || initialIndex >= urls.length) {
+      throw RangeError.index(initialIndex, urls);
+    }
+
+    for (final url in urls) {
+      _validateUrl(url);
+    }
+
+    currentTitle = title;
+    currentArtist = artist;
+
+    final sources = urls
+        .map((url) => AudioSource.uri(Uri.parse(url)))
+        .toList();
+
+    await player.setAudioSources(
+      sources,
+      initialIndex: initialIndex,
+      initialPosition: Duration.zero,
+    );
+  }
+
+  void _validateUrl(String url) {
+    final uri = Uri.tryParse(url);
+
+    if (uri == null ||
+        !uri.hasScheme ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw ArgumentError.value(
+        url,
+        'url',
+        'A valid HTTP(S) URL is required.',
+      );
+    }
   }
 
   Future<void> play() async {
@@ -61,4 +101,3 @@ class AudioPlayerService {
     await player.dispose();
   }
 }
-

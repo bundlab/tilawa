@@ -1,24 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../core/audio/quran_audio_catalog.dart';
+import '../../providers/audio_provider.dart';
 import '../../providers/quran_provider.dart';
 
 class SurahScreen extends ConsumerWidget {
   final int surahNumber;
 
-  const SurahScreen({super.key, required this.surahNumber});
+  const SurahScreen({
+    super.key,
+    required this.surahNumber,
+  });
+
+  Future<void> _playFromAyah(
+    BuildContext context,
+    WidgetRef ref,
+    List<dynamic> ayahs,
+    int startAyahNumber,
+  ) async {
+    if (ayahs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No Ayahs are available to play.')),
+      );
+      return;
+    }
+
+    final startIndex = ayahs.indexWhere(
+      (ayah) => ayah.number == startAyahNumber,
+    );
+
+    if (startIndex == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The selected Ayah was not found.')),
+      );
+      return;
+    }
+
+    try {
+      final urls = ayahs.map<String>((ayah) {
+        return QuranAudioCatalog.ayahUrl(
+          surahNumber: surahNumber,
+          ayahNumber: ayah.number,
+        );
+      }).toList();
+
+      final service = ref.read(audioPlayerServiceProvider);
+
+      await service.loadPlaylist(
+        urls: urls,
+        title: 'Surah ${surahNumber.toString()}',
+        artist: 'Mishary Rashid Alafasy',
+        initialIndex: startIndex,
+      );
+
+      ref.read(currentAyahProvider.notifier).setAyah(startAyahNumber);
+
+      await service.play();
+    } catch (error) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to play recitation: $error')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final surahs = ref.watch(surahsProvider);
 
-    final surah = surahs.firstWhere((item) => item.number == surahNumber);
+    final surah = surahs.firstWhere(
+      (item) => item.number == surahNumber,
+    );
 
     final ayahs = ref.watch(fatihahAyahsProvider);
+    final isPlaying = ref.watch(isPlayingProvider);
+    final currentAyah = ref.watch(currentAyahProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(surah.transliteration)),
+      appBar: AppBar(
+        title: Text(surah.transliteration),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -41,13 +104,14 @@ class SurahScreen extends ConsumerWidget {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 4),
-                  Text('${surah.ayahCount} Ayahs • ${surah.revelationType}'),
+                  Text(
+                    '${surah.ayahCount} Ayahs • ${surah.revelationType}',
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 12),
-
           ...ayahs.map(
             (ayah) => Card(
               child: Padding(
@@ -57,14 +121,36 @@ class SurahScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(radius: 16, child: Text('${ayah.number}')),
+                        CircleAvatar(
+                          radius: 16,
+                          child: Text('${ayah.number}'),
+                        ),
                         const Spacer(),
                         IconButton(
-                          onPressed: () {},
-                          icon: const Icon(Icons.play_circle_outline),
+                          tooltip: 'Play from Ayah ${ayah.number}',
+                          onPressed: () => _playFromAyah(
+                            context,
+                            ref,
+                            ayahs,
+                            ayah.number,
+                          ),
+                          icon: Icon(
+                            currentAyah == ayah.number && isPlaying
+                                ? Icons.pause_circle_filled
+                                : Icons.play_circle_outline,
+                          ),
                         ),
                         IconButton(
-                          onPressed: () {},
+                          tooltip: 'Bookmark Ayah ${ayah.number}',
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Bookmark integration is not connected yet.',
+                                ),
+                              ),
+                            );
+                          },
                           icon: const Icon(Icons.bookmark_outline),
                         ),
                       ],
@@ -93,9 +179,18 @@ class SurahScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/player'),
+        onPressed: () {
+          if (ayahs.isNotEmpty) {
+            _playFromAyah(
+              context,
+              ref,
+              ayahs,
+              ayahs.first.number,
+            );
+          }
+        },
         icon: const Icon(Icons.play_arrow),
-        label: const Text('Play'),
+        label: const Text('Play Surah'),
       ),
     );
   }
